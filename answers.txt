@@ -3,57 +3,50 @@
 # Write normal sentences; the ball shows them in capitals and breaks the lines itself.
 # Every answer has the same chance. After editing, double-click push.cmd to put it live.
 
-# Leans yes
+# LEANS YES	______________________________________
 Obviously
 Duh, yes
 Did you even need to ask?
 Fine, yes
-Yes, now shoo
+Yes, now go away
 Yes. You're welcome
 Sure, why not
 I guess so
-Yes, genius
 Totally
 Even I saw that coming
 The stars say duh
 Yes. Was that so hard?
-Big yes
-Yep. Next!
 Is the sky blue?
 Is water wet?
 Do bears like honey?
-Do cats like naps?
 I'd say yes if I cared
-Yes. Now pay me
-Yes. Tell no one
-Yes, you lucky duck
+Yes. Now leave me alone
+Yes but tell no one
 For a stud like you? Absolutely
 For a princess like you? Definitely
 
-# Can't tell yet
+# CAN'T TELL YET	______________________________________
 I'm on break
 Ask nicely
-Shake harder
 No comment
 BRB, thinking
 Ask your mom
-Too sleepy. Later
-Can't hear you
+I can't hear you
 Who knows?
 Why are you asking a ball?
-Ask the cat
 I'm a ball, not a genius
 Loading...
-My brain is foggy
 Try bribing me
 I dare you to ask again
-50/50. Flip a coin
+Maybe
 Don't look at me
 Hey loser, try again tomorrow
 Did someone fart in here?
 You didn't just touch me with that dirty finger, did you?
+You call that a spin, you're weaker than you look
 
-# Leans no
+# LEANS NO	______________________________________
+Absolutely not!
 LOL, no
 Not a chance
 In your dreams
@@ -66,10 +59,24 @@ Ha! No
 No. Don't ask again
 Big no
 Can pigs fly?
-Do fish ride bikes?
 When cows dance
 Not in a million years
 Sure, and I'm a toaster
-Error: too silly
 Hahaha. Oh, you're serious?
 The stars are laughing
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

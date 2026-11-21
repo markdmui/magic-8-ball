@@ -142,7 +142,7 @@ const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.4),
 shadow.position.set(0.2, -0.5, -1.2);
 shadow.renderOrder = -1;
 scene.add(shadow);
-const HOLE = 0.46;                         // window size, as an angle from the ball's centre
+const HOLE = 0.56;                         // window size, as an angle from the ball's centre
 const rHole = Math.sin(HOLE), zRim = -Math.cos(HOLE);
 
 const shellGeo = new THREE.SphereGeometry(1, 160, 120, 0, Math.PI * 2, HOLE, Math.PI - HOLE);
@@ -179,7 +179,7 @@ ball.add(new THREE.Mesh(capGeo, new THREE.MeshPhysicalMaterial({
 })));
 
 // the window: a short dark well, deep blue liquid, the floating triangle, then the glass
-const zLiquid = -0.8, zTri = -0.815, zGlass = zRim + 0.003;
+const zLiquid = -0.76, zTri = -0.775, zGlass = zRim + 0.003;
 const well = new THREE.CylinderGeometry(rHole, rHole * 0.97, zRim - zLiquid, 96, 1, true);
 well.rotateX(Math.PI / 2); well.translate(0, 0, (zRim + zLiquid) / 2);
 ball.add(new THREE.Mesh(well, new THREE.MeshStandardMaterial({ color: 0x02040c, roughness: 0.6, side: THREE.DoubleSide })));

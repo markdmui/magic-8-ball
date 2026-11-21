@@ -50,7 +50,7 @@ const T = {
   shakeMin: 12,       // phone acceleration that counts as a shake (m/s²)
 };
 
-// Own wording, all cheeky: 23 lean yes, 18 can't tell yet, 19 lean no.
+// Own wording plus five of Mark's, all cheeky: 25 lean yes, 21 can't tell yet, 19 lean no.
 const ANSWERS = [
   // leans yes
   'OBVIOUSLY', 'DUH,\nYES', 'DID YOU\nEVEN NEED\nTO ASK?', 'FINE,\nYES', 'YES,\nNOW SHOO',
@@ -58,11 +58,14 @@ const ANSWERS = [
   'EVEN I\nSAW THAT\nCOMING', 'THE STARS\nSAY DUH', 'YES. WAS\nTHAT SO\nHARD?', 'BIG\nYES', 'YEP.\nNEXT!',
   'IS THE\nSKY BLUE?', 'IS WATER\nWET?', 'DO BEARS\nLIKE\nHONEY?', 'DO CATS\nLIKE\nNAPS?', "I'D SAY\nYES IF I\nCARED",
   'YES. NOW\nPAY ME', 'YES. TELL\nNO ONE', 'YES, YOU\nLUCKY\nDUCK',
+  'FOR A\nSTUD LIKE\nYOU?\nABSOLUTELY', 'FOR A\nPRINCESS\nLIKE YOU?\nDEFINITELY',
   // can't tell yet
   "I'M ON\nBREAK", 'ASK\nNICELY', 'SHAKE\nHARDER', 'NO\nCOMMENT', 'BRB,\nTHINKING',
   'ASK YOUR\nMOM', 'TOO\nSLEEPY.\nLATER', "CAN'T\nHEAR YOU", 'WHO\nKNOWS?', 'WHY ARE\nYOU ASKING\nA BALL?',
   'ASK THE\nCAT', "I'M A\nBALL, NOT\nA GENIUS", 'LOADING...', 'MY BRAIN\nIS\nFOGGY', 'TRY\nBRIBING\nME',
   'I DARE\nYOU TO\nASK AGAIN', '50/50.\nFLIP A\nCOIN', "DON'T\nLOOK AT\nME",
+  'HEY\nLOSER, TRY\nAGAIN\nTOMORROW', 'DID\nSOMEONE\nFART IN\nHERE?',
+  "YOU\nDIDN'T JUST\nTOUCH ME\nWITH THAT\nDIRTY FINGER,\nDID YOU?",
   // leans no
   'LOL,\nNO', 'NOT A\nCHANCE', 'IN YOUR\nDREAMS', 'NICE\nTRY', 'NOPE',
   'AS IF', 'NOT EVEN\nCLOSE', "THAT'S A\nNO, CHIEF", 'HA!\nNO', "NO. DON'T\nASK AGAIN", 'BIG\nNO',
@@ -201,12 +204,21 @@ function drawAnswer(text) {
   g.fillStyle = gr; g.fill();
   g.lineJoin = 'round'; g.lineWidth = S * 0.012; g.strokeStyle = 'rgba(140,165,255,.55)'; g.stroke();
   const lines = text.split('\n');
-  const fs = S * (lines.length > 2 ? 0.068 : 0.078), lh = fs * 1.18;
+  // long answers shrink until every line fits inside the triangle at its height
+  const n = lines.length, mid = S * (n === 4 ? 0.63 : 0.6);
+  let fs = S * (n > 2 ? 0.068 : 0.078), lh, cy;
+  const setFont = () => {
+    g.font = `700 ${Math.round(fs)}px "Segoe UI", Arial, sans-serif`;
+    if ('letterSpacing' in g) g.letterSpacing = `${Math.round(fs * 0.04)}px`;
+    lh = fs * 1.18; cy = mid - (n - 1) * lh / 2;
+  };
+  const fits = () => cy + (n - 1) * lh + fs * 0.55 <= S * 0.78 && lines.every((l, i) => {
+    const yTop = cy + i * lh - fs * 0.4;
+    return g.measureText(l).width <= 0.85 * 0.8 * S * (yTop - 0.12 * S) / (0.693 * S);
+  });
+  for (setFont(); !fits() && fs > S * 0.035; ) { fs *= 0.95; setFont(); }
   g.fillStyle = '#f2f4ff';
-  g.font = `700 ${Math.round(fs)}px "Segoe UI", Arial, sans-serif`;
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  if ('letterSpacing' in g) g.letterSpacing = `${Math.round(fs * 0.04)}px`;
-  const cy = S * 0.6 - (lines.length - 1) * lh / 2;
   lines.forEach((l, i) => g.fillText(l, S / 2, cy + i * lh));
   triTex.needsUpdate = true;
 }
@@ -451,7 +463,7 @@ function frame(now) {
   renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
-window.__ball = { ball, omega, release, shakeSpin, drawAnswer, get phase() { return phase; }, get reveal() { return reveal; }, answer: '' };
+window.__ball = { ball, omega, release, shakeSpin, drawAnswer, triCv, get phase() { return phase; }, get reveal() { return reveal; }, answer: '' };
 </script>
 </body>
 </html>

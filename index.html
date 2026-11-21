@@ -46,8 +46,8 @@ const T = {
   fling: 1.4,         // spin speed / finger speed (1 = the ball's surface keeps up with the finger)
   mouseGain: 2,       // a mouse drag is slower than a finger flick
   maxSpin: 45,        // cap on spin (radians/s)
-  fricK: 0.55,        // spin slows by this share per second ...
-  fricC: 1.2,         // ... plus this much (rad/s per second), so it comes to a stop
+  fricK: 0.75,        // spin slows by this share per second ... (was 0.55)
+  fricC: 1.6,         // ... plus this much (rad/s per second), so it comes to a stop (was 1.2)
   settleAt: 4,        // below this spin the ball rolls over to show its window
   spring: 60,         // how firmly it rolls to the window (was 38)
   revealDelay: 0.05,  // pause before the answer rises (s) (was 0.25)

@@ -178,7 +178,7 @@ ball.add(new THREE.Mesh(capGeo, new THREE.MeshPhysicalMaterial({
   polygonOffset: true, polygonOffsetFactor: -2,
 })));
 
-// the window: a short dark well, deep blue liquid, the floating triangle, then the glass
+// the window: a short dark well, deep blue liquid, the glow and answer, then the glass
 const zLiquid = -0.76, zTri = -0.775, zGlass = zRim + 0.003;
 const well = new THREE.CylinderGeometry(rHole, rHole * 0.97, zRim - zLiquid, 96, 1, true);
 well.rotateX(Math.PI / 2); well.translate(0, 0, (zRim + zLiquid) / 2);
@@ -196,41 +196,48 @@ const liquidGeo = new THREE.CircleGeometry(rHole * 0.98, 96); liquidGeo.rotateY(
 const liquid = new THREE.Mesh(liquidGeo, new THREE.MeshBasicMaterial({ map: liquidTexture() }));
 liquid.position.z = zLiquid; ball.add(liquid);
 
-const triCv = document.createElement('canvas'); triCv.width = triCv.height = texS;
-const triTex = canvasTex(triCv);
+// when the ball stops, blue light swells from the centre and fills the window; the answer floats in it
+function glowTexture() {
+  const S = 512, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  const gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  gr.addColorStop(0, 'rgba(110,160,255,1)'); gr.addColorStop(0.25, 'rgba(60,110,255,.75)');
+  gr.addColorStop(0.6, 'rgba(30,60,210,.35)'); gr.addColorStop(0.9, 'rgba(15,30,140,.08)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, S, S);
+  return canvasTex(cv);
+}
+const winGeo = new THREE.PlaneGeometry(rHole * 1.96, rHole * 1.96); winGeo.rotateY(Math.PI);
+const glowMat = new THREE.MeshBasicMaterial({ map: glowTexture(), transparent: true, opacity: 0, depthWrite: false,
+  blending: THREE.AdditiveBlending, toneMapped: false });
+const glowMesh = new THREE.Mesh(winGeo, glowMat);
+glowMesh.position.z = zLiquid - 0.006; ball.add(glowMesh);
+
+const textCv = document.createElement('canvas'); textCv.width = textCv.height = texS;
+const textTex = canvasTex(textCv);
 function drawAnswer(text) {
-  const S = texS, g = triCv.getContext('2d');
+  const S = texS, g = textCv.getContext('2d');
   g.clearRect(0, 0, S, S);
-  const top = [S * 0.5, S * 0.12], bl = [S * 0.1, S * 0.813], br = [S * 0.9, S * 0.813];
-  const path = () => { g.beginPath(); g.moveTo(...top); g.lineTo(...bl); g.lineTo(...br); g.closePath(); };
-  path();
-  const gr = g.createLinearGradient(0, S * 0.12, 0, S * 0.82);
-  gr.addColorStop(0, '#3150d0'); gr.addColorStop(1, '#1d33a0');
-  g.fillStyle = gr; g.fill();
-  g.lineJoin = 'round'; g.lineWidth = S * 0.012; g.strokeStyle = 'rgba(140,165,255,.55)'; g.stroke();
-  const lines = text.split('\n');
-  // long answers shrink until every line fits inside the triangle at its height
-  const n = lines.length, mid = S * (n === 4 ? 0.63 : 0.6);
-  let fs = S * (n > 2 ? 0.068 : 0.078), lh, cy;
+  const lines = text.split('\n'), n = lines.length, Rc = S * 0.5 * 0.84;
+  // biggest size where the block and every line fit inside the round window
+  let fs = S * 0.16, lh, cy;
   const setFont = () => {
     g.font = `700 ${Math.round(fs)}px "Segoe UI", Arial, sans-serif`;
-    if ('letterSpacing' in g) g.letterSpacing = `${Math.round(fs * 0.04)}px`;
-    lh = fs * 1.18; cy = mid - (n - 1) * lh / 2;
+    if ('letterSpacing' in g) g.letterSpacing = `${Math.round(fs * 0.03)}px`;
+    lh = fs * 1.12; cy = S / 2 - (n - 1) * lh / 2;
   };
-  const fits = () => cy + (n - 1) * lh + fs * 0.55 <= S * 0.78 && lines.every((l, i) => {
-    const yTop = cy + i * lh - fs * 0.4;
-    return g.measureText(l).width <= 0.85 * 0.8 * S * (yTop - 0.12 * S) / (0.693 * S);
+  const fits = () => n * lh <= Rc * 1.9 && lines.every((l, i) => {
+    const y = cy + i * lh - S / 2, dy = Math.max(Math.abs(y - fs * 0.42), Math.abs(y + fs * 0.42));
+    return dy < Rc && g.measureText(l).width <= 2 * Math.sqrt(Rc * Rc - dy * dy);
   });
-  for (setFont(); !fits() && fs > S * 0.035; ) { fs *= 0.95; setFont(); }
-  g.fillStyle = '#f2f4ff';
+  for (setFont(); !fits() && fs > S * 0.04; ) { fs *= 0.96; setFont(); }
   g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.shadowColor = 'rgba(150,185,255,.9)'; g.shadowBlur = fs * 0.35;
+  g.fillStyle = '#f4f7ff';
   lines.forEach((l, i) => g.fillText(l, S / 2, cy + i * lh));
-  triTex.needsUpdate = true;
+  textTex.needsUpdate = true;
 }
-const TRI = rHole * 1.78;
-const triGeo = new THREE.PlaneGeometry(TRI, TRI); triGeo.translate(0, 0.082 * TRI, 0); triGeo.rotateY(Math.PI);
-const triMat = new THREE.MeshBasicMaterial({ map: triTex, transparent: true, opacity: 0, depthWrite: false });
-const tri = new THREE.Mesh(triGeo, triMat);
+const textMat = new THREE.MeshBasicMaterial({ map: textTex, transparent: true, opacity: 0, depthWrite: false, toneMapped: false });
+const tri = new THREE.Mesh(winGeo, textMat);   // the floating answer
 tri.position.z = zTri; ball.add(tri);
 
 // glass: reflections only, added on top of what is behind it
@@ -471,7 +478,7 @@ function step(dt) {
 let prev = performance.now(), clock = 0;
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.05, (now - prev) / 1000); prev = now; clock += dt;
+  const dt = Math.max(0, Math.min(0.05, (now - prev) / 1000)); prev = Math.max(prev, now); clock += dt;
   for (let i = 0; i < 4; i++) step(dt / 4);
 
   // the answer rises through the liquid, sways a little, sinks away on the next spin
@@ -482,9 +489,10 @@ function frame(now) {
     const x = Math.min(1, Math.max(0, (revealT - T.revealDelay) / T.revealTime));
     reveal = x * x * (3 - 2 * x);
   } else reveal = Math.max(0, reveal - dt * 5);
-  triMat.opacity = reveal * 0.97;
-  tri.scale.setScalar(0.86 + 0.14 * reveal);
-  tri.rotation.z = Math.sin(clock * 0.6) * 0.035;
+  glowMat.opacity = reveal;
+  textMat.opacity = reveal;
+  tri.scale.setScalar(0.9 + 0.1 * reveal);
+  tri.rotation.z = Math.sin(clock * 0.6) * 0.02;
   tri.position.y = Math.sin(clock * 0.8) * 0.006;
 
   if (swishGain) {
@@ -495,7 +503,7 @@ function frame(now) {
   renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
-window.__ball = { ball, omega, release, shakeSpin, drawAnswer, triCv, openMenu, get menuOpen() { return menuOpen; }, get phase() { return phase; }, get reveal() { return reveal; }, answer: '' };
+window.__ball = { ball, omega, release, shakeSpin, drawAnswer, textCv, frame, openMenu, get menuOpen() { return menuOpen; }, get phase() { return phase; }, get reveal() { return reveal; }, answer: '' };
 </script>
 </body>
 </html>

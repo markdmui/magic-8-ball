@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#2c2c2e">
+<meta name="theme-color" content="#45454a">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Magic 8 Ball</title>
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none;
-    background: radial-gradient(ellipse at 42% 38%, #5a5a5e 0%, #3e3e41 45%, #262628 100%);
+    background: radial-gradient(ellipse at 42% 38%, #76767b 0%, #5a5a5e 45%, #3e3e41 100%);
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: none;
     -webkit-tap-highlight-color: transparent; }
   canvas { display: block; position: fixed; left: 0; top: 0; }
@@ -18,6 +18,10 @@
   #mute .off { display: none; }
   #mute.muted .on { display: none; }
   #mute.muted .off { display: inline; }
+  #menu { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(8,7,6,.78); opacity: 0; pointer-events: none; transition: opacity .15s; }
+  #menu.open { opacity: 1; pointer-events: auto; }
+  #reload { padding: 14px 28px; font: 15px "Segoe UI", system-ui, sans-serif; color: rgba(255,255,255,.45); }
   #start { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
     color: #fff; font: 600 22px "Segoe UI", system-ui, sans-serif; background: rgba(8,7,6,.6); letter-spacing: .03em; }
 </style>
@@ -30,6 +34,7 @@
 </head>
 <body>
 <div id="mute" class="muted"><svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z"/><g class="on"><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/><path d="M18 6.5a7.8 7.8 0 0 1 0 11"/></g><g class="off"><path d="M16 9.5l5 5"/><path d="M21 9.5l-5 5"/></g></svg></div>
+<div id="menu"><div id="reload">Reload</div></div>
 <div id="start">Tap to start</div>
 
 <script type="module">
@@ -309,6 +314,28 @@ function rotateBy(v, angle) {
   ball.quaternion.premultiply(dq).normalize();
 }
 
+// ---------- menu: two fingers touch the screen ----------
+const touches = new Set();
+addEventListener('pointerdown', e => {
+  if (!started || menuOpen || e.pointerType !== 'touch') return;
+  touches.add(e.pointerId);
+  if (touches.size >= 2) { touches.clear(); openMenu(); }
+}, { passive: true });
+const liftTouch = e => touches.delete(e.pointerId);
+addEventListener('pointerup', liftTouch, { passive: true });
+addEventListener('pointercancel', liftTouch, { passive: true });
+const menu = document.getElementById('menu');
+let menuOpen = false, menuAt = 0;
+document.getElementById('reload').addEventListener('click', () => location.replace(location.pathname + '?r=' + Date.now()));
+function openMenu() {
+  menuOpen = true; menuAt = performance.now();
+  finger = null;
+  if (phase === 'held') release(0, 0);           // a drag cut short by the second finger: let the ball settle
+  menu.classList.add('open'); buzz(12);
+}
+function closeMenu() { menuOpen = false; menu.classList.remove('open'); }
+menu.addEventListener('click', e => { if (e.target === menu && performance.now() - menuAt > 300) closeMenu(); });
+
 // ---------- input ----------
 let finger = null;
 function fitVelocity(pts, windowMs) {
@@ -339,7 +366,7 @@ function addPoints(e) {
   if (finger.pts.length > 400) finger.pts.splice(0, finger.pts.length - 400);
 }
 addEventListener('pointerdown', e => {
-  if (!started || e.target.id === 'mute') return;
+  if (!started || menuOpen || e.target.id === 'mute') return;
   const mouse = e.pointerType === 'mouse';
   if (mouse) {
     if (e.button !== 0) return;
@@ -385,9 +412,14 @@ addEventListener('devicemotion', e => {
     x = g.x - gX; y = g.y - gY; z = g.z - gZ;
   } else return;
   const now = performance.now();
-  if (started && Math.hypot(x, y, z) > T.shakeMin && now - lastShake > 600) { lastShake = now; shakeSpin(); }
+  if (started && !menuOpen && Math.hypot(x, y, z) > T.shakeMin && now - lastShake > 600) { lastShake = now; shakeSpin(); }
 });
-addEventListener('keydown', e => { if (started && (e.key === 's' || e.key === 'S' || e.key === ' ')) shakeSpin(); });
+addEventListener('keydown', e => {
+  if (!started) return;
+  if (e.key === 's' || e.key === 'S' || e.key === ' ') { if (!menuOpen) shakeSpin(); }
+  else if (e.key === 'm' || e.key === 'M') menuOpen ? closeMenu() : openMenu();
+  else if (e.key === 'Escape') closeMenu();
+});
 
 // double tap: full screen on / off
 let lastTap = null;
@@ -463,7 +495,7 @@ function frame(now) {
   renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
-window.__ball = { ball, omega, release, shakeSpin, drawAnswer, triCv, get phase() { return phase; }, get reveal() { return reveal; }, answer: '' };
+window.__ball = { ball, omega, release, shakeSpin, drawAnswer, triCv, openMenu, get menuOpen() { return menuOpen; }, get phase() { return phase; }, get reveal() { return reveal; }, answer: '' };
 </script>
 </body>
 </html>

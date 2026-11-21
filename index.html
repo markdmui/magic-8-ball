@@ -37,16 +37,16 @@ import * as THREE from 'three';
 
 // ---------- tuning ----------
 const T = {
-  ballOfShort: 0.8,   // ball diameter as a share of the screen's short side
+  ballOfShort: 1,     // ball's outline as a share of the screen's short side (1 = touches both edges)
   fling: 1.4,         // spin speed / finger speed (1 = the ball's surface keeps up with the finger)
   mouseGain: 2,       // a mouse drag is slower than a finger flick
   maxSpin: 45,        // cap on spin (radians/s)
   fricK: 0.55,        // spin slows by this share per second ...
   fricC: 1.2,         // ... plus this much (rad/s per second), so it comes to a stop
   settleAt: 4,        // below this spin the ball rolls over to show its window
-  spring: 38,         // how firmly it rolls to the window
-  revealDelay: 0.25,  // pause before the answer rises (s)
-  revealTime: 1.5,    // answer fades up through the liquid (s)
+  spring: 60,         // how firmly it rolls to the window (was 38)
+  revealDelay: 0.05,  // pause before the answer rises (s) (was 0.25)
+  revealTime: 0.8,    // answer fades up through the liquid (s) (was 1.5)
   shakeMin: 12,       // phone acceleration that counts as a shake (m/s²)
 };
 
@@ -203,9 +203,10 @@ function layout() {
   W = innerWidth; H = innerHeight;
   renderer.setSize(W, H);
   camera.aspect = W / H;
-  const shortVis = 2 / T.ballOfShort;                 // world units across the short side
-  const visH = W < H ? shortVis / camera.aspect : shortVis;
-  camera.position.set(0, 0, 1 + visH / 2 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+  // distance where the sphere's true outline spans ballOfShort of the short side
+  const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const tanShort = W < H ? tanV * camera.aspect : tanV;
+  camera.position.set(0, 0, Math.sqrt(1 + 1 / (T.ballOfShort * tanShort) ** 2));
   camera.lookAt(0, 0, 0);
   camera.updateProjectionMatrix();
   Rpx = Math.min(W, H) * T.ballOfShort / 2;
@@ -389,7 +390,7 @@ function step(dt) {
       if (sh > 1e-6) errV.set(eq.x / sh, eq.y / sh, eq.z / sh).multiplyScalar(ang); else errV.set(0, 0, 0);
       const D = 2 * Math.sqrt(T.spring);
       omega.addScaledVector(errV, T.spring * dt).addScaledVector(omega, -D * dt);
-      if (phase === 'settle' && ang < 0.03 && omega.length() < 0.2) { phase = 'shown'; revealT = 0; }
+      if (phase === 'settle' && ang < 0.12 && omega.length() < 0.8) { phase = 'shown'; revealT = 0; }
     }
     rotateBy(omega, omega.length() * dt);
   }

@@ -50,18 +50,24 @@ const T = {
   shakeMin: 12,       // phone acceleration that counts as a shake (m/s²)
 };
 
-// Own wording, all cheeky: 15 lean yes, 10 can't tell yet, 11 lean no.
+// Own wording, all cheeky: 23 lean yes, 18 can't tell yet, 19 lean no.
 const ANSWERS = [
   // leans yes
   'OBVIOUSLY', 'DUH,\nYES', 'DID YOU\nEVEN NEED\nTO ASK?', 'FINE,\nYES', 'YES,\nNOW SHOO',
   "YES.\nYOU'RE\nWELCOME", 'SURE,\nWHY NOT', 'I GUESS\nSO', 'YES,\nGENIUS', 'TOTALLY',
   'EVEN I\nSAW THAT\nCOMING', 'THE STARS\nSAY DUH', 'YES. WAS\nTHAT SO\nHARD?', 'BIG\nYES', 'YEP.\nNEXT!',
+  'IS THE\nSKY BLUE?', 'IS WATER\nWET?', 'DO BEARS\nLIKE\nHONEY?', 'DO CATS\nLIKE\nNAPS?', "I'D SAY\nYES IF I\nCARED",
+  'YES. NOW\nPAY ME', 'YES. TELL\nNO ONE', 'YES, YOU\nLUCKY\nDUCK',
   // can't tell yet
   "I'M ON\nBREAK", 'ASK\nNICELY', 'SHAKE\nHARDER', 'NO\nCOMMENT', 'BRB,\nTHINKING',
   'ASK YOUR\nMOM', 'TOO\nSLEEPY.\nLATER', "CAN'T\nHEAR YOU", 'WHO\nKNOWS?', 'WHY ARE\nYOU ASKING\nA BALL?',
+  'ASK THE\nCAT', "I'M A\nBALL, NOT\nA GENIUS", 'LOADING...', 'MY BRAIN\nIS\nFOGGY', 'TRY\nBRIBING\nME',
+  'I DARE\nYOU TO\nASK AGAIN', '50/50.\nFLIP A\nCOIN', "DON'T\nLOOK AT\nME",
   // leans no
   'LOL,\nNO', 'NOT A\nCHANCE', 'IN YOUR\nDREAMS', 'NICE\nTRY', 'NOPE',
   'AS IF', 'NOT EVEN\nCLOSE', "THAT'S A\nNO, CHIEF", 'HA!\nNO', "NO. DON'T\nASK AGAIN", 'BIG\nNO',
+  'CAN PIGS\nFLY?', 'DO FISH\nRIDE\nBIKES?', 'WHEN\nCOWS\nDANCE', 'NOT IN A\nMILLION\nYEARS', "SURE, AND\nI'M A\nTOASTER",
+  'ERROR:\nTOO SILLY', "HAHAHA.\nOH, YOU'RE\nSERIOUS?", 'THE STARS\nARE\nLAUGHING',
 ];
 
 // ---------- renderer ----------

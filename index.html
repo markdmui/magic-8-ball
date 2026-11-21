@@ -50,12 +50,18 @@ const T = {
   shakeMin: 12,       // phone acceleration that counts as a shake (m/s²)
 };
 
-// Own wording, same idea as the toy: half lean yes, a quarter no, a quarter "can't tell yet".
+// Own wording, with some cheek: 15 lean yes, 10 can't tell yet, 11 lean no.
 const ANSWERS = [
+  // leans yes
   'COUNT\nON IT', 'ALL SIGNS\nSAY YES', 'THE STARS\nAGREE', 'LOOKS\nGOOD', 'VERY\nLIKELY',
   'YES,\nIN TIME', "I'D BET\nON IT", 'IT IS\nWRITTEN', 'SURE\nLOOKS\nTHAT WAY', 'GO\nFOR IT',
+  'OBVIOUSLY', 'DUH,\nYES', 'DID YOU\nEVEN NEED\nTO ASK?', 'FINE,\nYES', 'YES,\nNOW SHOO',
+  // can't tell yet
   'TOO\nCLOUDY\nTO TELL', 'WAIT\nAND SEE', 'HARD\nTO SAY', 'ASK ME\nTOMORROW', 'COULD GO\nEITHER\nWAY',
+  "I'M ON\nBREAK", 'ASK\nNICELY', 'SHAKE\nHARDER', 'NO\nCOMMENT', 'BRB,\nTHINKING',
+  // leans no
   "DON'T BET\nON IT", 'THE STARS\nSAY NO', 'NOT\nLIKELY', "I\nWOULDN'T", 'NOT THIS\nTIME', 'SLIM\nCHANCE',
+  'LOL,\nNO', 'NOT A\nCHANCE', 'IN YOUR\nDREAMS', 'NICE\nTRY', 'NOPE',
 ];
 
 // ---------- renderer ----------
@@ -423,7 +429,7 @@ function frame(now) {
   renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
-window.__ball = { ball, omega, release, shakeSpin, get phase() { return phase; }, get reveal() { return reveal; }, answer: '' };
+window.__ball = { ball, omega, release, shakeSpin, drawAnswer, get phase() { return phase; }, get reveal() { return reveal; }, answer: '' };
 </script>
 </body>
 </html>

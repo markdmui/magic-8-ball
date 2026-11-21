@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#110f0d">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Magic 8 Ball</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none;
+    background: radial-gradient(ellipse at 50% 45%, #241f1a 0%, #14110e 55%, #0a0908 100%);
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent; }
+  canvas { display: block; position: fixed; left: 0; top: 0; }
+  #mute { position: fixed; left: 2px; top: 2px; color: rgba(255,255,255,.3); padding: 10px; line-height: 0; }
+  #mute svg { width: 20px; height: 20px; pointer-events: none; fill: none; stroke: currentColor;
+    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  #mute .off { display: none; }
+  #mute.muted .on { display: none; }
+  #mute.muted .off { display: inline; }
+  #start { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #fff; font: 600 22px "Segoe UI", system-ui, sans-serif; background: rgba(8,7,6,.6); letter-spacing: .03em; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="mute" class="muted"><svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z"/><g class="on"><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/><path d="M18 6.5a7.8 7.8 0 0 1 0 11"/></g><g class="off"><path d="M16 9.5l5 5"/><path d="M21 9.5l-5 5"/></g></svg></div>
+<div id="start">Tap to start</div>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ---------- tuning ----------
+const T = {
+  ballOfShort: 0.8,   // ball diameter as a share of the screen's short side
+  fling: 1.4,         // spin speed / finger speed (1 = the ball's surface keeps up with the finger)
+  mouseGain: 2,       // a mouse drag is slower than a finger flick
+  maxSpin: 45,        // cap on spin (radians/s)
+  fricK: 0.55,        // spin slows by this share per second ...
+  fricC: 1.2,         // ... plus this much (rad/s per second), so it comes to a stop
+  settleAt: 4,        // below this spin the ball rolls over to show its window
+  spring: 38,         // how firmly it rolls to the window
+  revealDelay: 0.25,  // pause before the answer rises (s)
+  revealTime: 1.5,    // answer fades up through the liquid (s)
+  shakeMin: 12,       // phone acceleration that counts as a shake (m/s²)
+};
+
+// Own wording, same idea as the toy: half lean yes, a quarter no, a quarter "can't tell yet".
+const ANSWERS = [
+  'COUNT\nON IT', 'ALL SIGNS\nSAY YES', 'THE STARS\nAGREE', 'LOOKS\nGOOD', 'VERY\nLIKELY',
+  'YES,\nIN TIME', "I'D BET\nON IT", 'IT IS\nWRITTEN', 'SURE\nLOOKS\nTHAT WAY', 'GO\nFOR IT',
+  'TOO\nCLOUDY\nTO TELL', 'WAIT\nAND SEE', 'HARD\nTO SAY', 'ASK ME\nTOMORROW', 'COULD GO\nEITHER\nWAY',
+  "DON'T BET\nON IT", 'THE STARS\nSAY NO', 'NOT\nLIKELY', "I\nWOULDN'T", 'NOT THIS\nTIME', 'SLIM\nCHANCE',
+];
+
+// ---------- renderer ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+const DPR = Math.min(window.devicePixelRatio || 1, 3);
+renderer.setPixelRatio(DPR);
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+document.body.prepend(renderer.domElement);
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+const scene = new THREE.Scene();
+// studio of soft boxes: the black gloss lives on these reflections
+const pmrem = new THREE.PMREMGenerator(renderer);
+function studio() {
+  const s = new THREE.Scene();
+  s.background = new THREE.Color(0x030304);
+  const box = (w, h, pos, col, k) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(k), side: THREE.DoubleSide }));
+    m.position.set(...pos); m.lookAt(0, 0, 0); s.add(m);
+  };
+  box(6, 4.5, [-4.5, 5, 6], 0xffffff, 6);       // main soft box, upper left in front
+  box(1.2, 6, [6, 0.5, -2.5], 0xffeedd, 1.8);   // rim strip, right edge
+  box(10, 3, [0, -6, 3], 0x3a2a1e, 0.6);        // warm table bounce below
+  box(14, 14, [0, 10, 0], 0x50535c, 0.5);       // dim ceiling
+  return s;
+}
+scene.environment = pmrem.fromScene(studio(), 0.02).texture;
+scene.environmentIntensity = 1;
+
+const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100);
+const key = new THREE.DirectionalLight(0xfff3e4, 2.2);
+key.position.set(-3, 4, 6);
+scene.add(key);
+scene.add(new THREE.HemisphereLight(0xdfe6ff, 0x1a120c, 0.25));
+
+function canvasTex(cv) {
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = maxAniso;
+  return t;
+}
+const texS = DPR >= 2 ? 1024 : 512;
+
+// ---------- the ball ----------
+// Local frame: the 8 faces +z, the answer window faces -z.
+const ball = new THREE.Group();
+scene.add(ball);
+const HOLE = 0.46;                         // window size, as an angle from the ball's centre
+const rHole = Math.sin(HOLE), zRim = -Math.cos(HOLE);
+
+const shellGeo = new THREE.SphereGeometry(1, 160, 120, 0, Math.PI * 2, HOLE, Math.PI - HOLE);
+shellGeo.rotateX(-Math.PI / 2);            // the open pole ends up at -z
+const blackGloss = new THREE.MeshPhysicalMaterial({
+  color: 0x050506, roughness: 0.22, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.03,
+});
+ball.add(new THREE.Mesh(shellGeo, blackGloss));
+
+// white circle with the 8, printed on the front and under the same clear coat
+const CAP = 0.5;
+function eightTexture() {
+  const S = texS, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  g.beginPath(); g.arc(S / 2, S / 2, S * 0.497, 0, Math.PI * 2); g.fillStyle = '#f4f2ec'; g.fill();
+  g.fillStyle = '#0b0b0c';
+  g.font = `700 ${Math.round(S * 0.7)}px "Arial Rounded MT Bold", "Segoe UI", Arial, sans-serif`;
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  const m = g.measureText('8');
+  const h = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+  g.fillText('8', S / 2, S / 2 + h / 2 - m.actualBoundingBoxDescent);
+  return canvasTex(cv);
+}
+const capGeo = new THREE.SphereGeometry(1.0008, 160, 24, 0, Math.PI * 2, Math.PI - CAP, CAP);
+capGeo.rotateX(-Math.PI / 2);              // the cap ends up at +z
+{
+  const p = capGeo.attributes.position, uv = capGeo.attributes.uv, R = Math.sin(CAP);
+  for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) / (2 * R) + 0.5, p.getY(i) / (2 * R) + 0.5);
+  uv.needsUpdate = true;
+}
+ball.add(new THREE.Mesh(capGeo, new THREE.MeshPhysicalMaterial({
+  map: eightTexture(), transparent: true, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.03,
+  polygonOffset: true, polygonOffsetFactor: -2,
+})));
+
+// the window: a short dark well, deep blue liquid, the floating triangle, then the glass
+const zLiquid = -0.8, zTri = -0.815, zGlass = zRim + 0.003;
+const well = new THREE.CylinderGeometry(rHole, rHole * 0.97, zRim - zLiquid, 96, 1, true);
+well.rotateX(Math.PI / 2); well.translate(0, 0, (zRim + zLiquid) / 2);
+ball.add(new THREE.Mesh(well, new THREE.MeshStandardMaterial({ color: 0x02040c, roughness: 0.6, side: THREE.DoubleSide })));
+
+function liquidTexture() {
+  const S = 512, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  const gr = g.createRadialGradient(S * 0.5, S * 0.47, 0, S / 2, S / 2, S / 2);
+  gr.addColorStop(0, '#0d1d5c'); gr.addColorStop(0.55, '#081344'); gr.addColorStop(1, '#01030d');
+  g.fillStyle = gr; g.fillRect(0, 0, S, S);
+  return canvasTex(cv);
+}
+const liquidGeo = new THREE.CircleGeometry(rHole * 0.98, 96); liquidGeo.rotateY(Math.PI);
+const liquid = new THREE.Mesh(liquidGeo, new THREE.MeshBasicMaterial({ map: liquidTexture() }));
+liquid.position.z = zLiquid; ball.add(liquid);
+
+const triCv = document.createElement('canvas'); triCv.width = triCv.height = texS;
+const triTex = canvasTex(triCv);
+function drawAnswer(text) {
+  const S = texS, g = triCv.getContext('2d');
+  g.clearRect(0, 0, S, S);
+  const top = [S * 0.5, S * 0.12], bl = [S * 0.1, S * 0.813], br = [S * 0.9, S * 0.813];
+  const path = () => { g.beginPath(); g.moveTo(...top); g.lineTo(...bl); g.lineTo(...br); g.closePath(); };
+  path();
+  const gr = g.createLinearGradient(0, S * 0.12, 0, S * 0.82);
+  gr.addColorStop(0, '#3150d0'); gr.addColorStop(1, '#1d33a0');
+  g.fillStyle = gr; g.fill();
+  g.lineJoin = 'round'; g.lineWidth = S * 0.012; g.strokeStyle = 'rgba(140,165,255,.55)'; g.stroke();
+  const lines = text.split('\n');
+  const fs = S * (lines.length > 2 ? 0.068 : 0.078), lh = fs * 1.18;
+  g.fillStyle = '#f2f4ff';
+  g.font = `700 ${Math.round(fs)}px "Segoe UI", Arial, sans-serif`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  if ('letterSpacing' in g) g.letterSpacing = `${Math.round(fs * 0.04)}px`;
+  const cy = S * 0.6 - (lines.length - 1) * lh / 2;
+  lines.forEach((l, i) => g.fillText(l, S / 2, cy + i * lh));
+  triTex.needsUpdate = true;
+}
+const TRI = rHole * 1.78;
+const triGeo = new THREE.PlaneGeometry(TRI, TRI); triGeo.translate(0, 0.082 * TRI, 0); triGeo.rotateY(Math.PI);
+const triMat = new THREE.MeshBasicMaterial({ map: triTex, transparent: true, opacity: 0, depthWrite: false });
+const tri = new THREE.Mesh(triGeo, triMat);
+tri.position.z = zTri; ball.add(tri);
+
+// glass: reflections only, added on top of what is behind it
+const glassGeo = new THREE.CircleGeometry(rHole, 96); glassGeo.rotateY(Math.PI);
+const glass = new THREE.Mesh(glassGeo, new THREE.MeshStandardMaterial({
+  color: 0x000000, roughness: 0.06, metalness: 0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+}));
+glass.position.z = zGlass; ball.add(glass);
+const rimGeo = new THREE.TorusGeometry(rHole, 0.014, 16, 128);
+const rim = new THREE.Mesh(rimGeo, blackGloss); rim.position.z = zRim; ball.add(rim);
+
+// ---------- layout ----------
+let W = 0, H = 0, Rpx = 100;
+function layout() {
+  W = innerWidth; H = innerHeight;
+  renderer.setSize(W, H);
+  camera.aspect = W / H;
+  const shortVis = 2 / T.ballOfShort;                 // world units across the short side
+  const visH = W < H ? shortVis / camera.aspect : shortVis;
+  camera.position.set(0, 0, 1 + visH / 2 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+  camera.lookAt(0, 0, 0);
+  camera.updateProjectionMatrix();
+  Rpx = Math.min(W, H) * T.ballOfShort / 2;
+}
+addEventListener('resize', layout); layout();
+
+// ---------- audio ----------
+let ac = null, master = null, swishGain = null, swishBp = null, muted = true;
+function initAudio() {
+  if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+  ac = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+  master = ac.createGain(); master.gain.value = muted ? 0 : 0.9; master.connect(ac.destination);
+  const buf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate), d = buf.getChannelData(0);
+  let b = 0; for (let i = 0; i < d.length; i++) { b = b * 0.97 + (Math.random() * 2 - 1) * 0.03; d[i] = b * 6; }
+  const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+  swishBp = ac.createBiquadFilter(); swishBp.type = 'bandpass'; swishBp.Q.value = 0.8; swishBp.frequency.value = 300;
+  swishGain = ac.createGain(); swishGain.gain.value = 0;
+  src.connect(swishBp).connect(swishGain).connect(master); src.start();
+}
+// a soft low "bloop" as the answer surfaces
+function bloop() {
+  if (!ac || muted) return;
+  const t = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter();
+  o.type = 'sine'; o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(260, t + 0.35);
+  f.type = 'lowpass'; f.frequency.value = 900;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.32, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+  o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + 1);
+}
+const muteBtn = document.getElementById('mute');
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  muteBtn.classList.toggle('muted', muted);
+  if (master) master.gain.value = muted ? 0 : 0.9;
+});
+function buzz(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
+
+// ---------- spin state ----------
+// phase: 'eight' (start, showing the 8) | 'held' | 'spin' | 'settle' | 'shown'
+let phase = 'eight';
+const omega = new THREE.Vector3();          // world-space spin (rad/s)
+const target = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI); // window to the camera
+let reveal = 0, revealT = 0, recent = [];
+function pickAnswer() {
+  let i;
+  do { i = Math.random() * ANSWERS.length | 0; } while (recent.includes(i));
+  recent.push(i); if (recent.length > 4) recent.shift();
+  drawAnswer(ANSWERS[i]);
+  window.__ball.answer = ANSWERS[i].replace(/\n/g, ' ');
+}
+function release(wx, wy) {
+  omega.set(wx, wy, 0);
+  if (omega.length() > T.maxSpin) omega.setLength(T.maxSpin);
+  phase = 'spin';
+}
+const dq = new THREE.Quaternion(), ax = new THREE.Vector3();
+function rotateBy(v, angle) {
+  if (angle < 1e-7) return;
+  dq.setFromAxisAngle(ax.copy(v).normalize(), angle);
+  ball.quaternion.premultiply(dq).normalize();
+}
+
+// ---------- input ----------
+let finger = null;
+function fitVelocity(pts, windowMs) {
+  const tEnd = pts[pts.length - 1].t;
+  const w = pts.filter(p => tEnd - p.t <= windowMs);
+  if (w.length < 2) return { vx: 0, vy: 0 };
+  let st = 0, sx = 0, sy = 0, stt = 0, stx = 0, sty = 0; const n = w.length;
+  for (const p of w) { const t = (p.t - tEnd) / 1000; st += t; sx += p.x; sy += p.y; stt += t * t; stx += t * p.x; sty += t * p.y; }
+  const den = n * stt - st * st;
+  if (Math.abs(den) < 1e-12) return { vx: 0, vy: 0 };
+  return { vx: (n * stx - st * sx) / den, vy: (n * sty - st * sy) / den };
+}
+function addPoints(e) {
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+  for (const ev of (evs.length ? evs : [e])) {
+    const prev = finger.pts[finger.pts.length - 1];
+    const p = { x: ev.clientX, y: ev.clientY, t: ev.timeStamp };
+    finger.pts.push(p);
+    if (!finger.moved && Math.hypot(p.x - finger.pts[0].x, p.y - finger.pts[0].y) > 10) {
+      finger.moved = true; phase = 'held'; omega.set(0, 0, 0);
+    }
+    // live push: the ball turns under the finger like a trackball
+    if (finger.moved && prev) {
+      const dx = p.x - prev.x, dy = p.y - prev.y;
+      rotateBy(ax.set(dy, dx, 0), Math.hypot(dx, dy) / Rpx * (finger.mouse ? T.mouseGain : 1));
+    }
+  }
+  if (finger.pts.length > 400) finger.pts.splice(0, finger.pts.length - 400);
+}
+addEventListener('pointerdown', e => {
+  if (!started || e.target.id === 'mute') return;
+  const mouse = e.pointerType === 'mouse';
+  if (mouse) {
+    if (e.button !== 0) return;
+    finger = null;
+    try { document.documentElement.setPointerCapture(e.pointerId); } catch {}
+  }
+  if (finger) return;
+  finger = { id: e.pointerId, pts: [], mouse, moved: false };
+  addPoints(e);
+}, { passive: true });
+addEventListener('pointermove', e => { if (finger && e.pointerId === finger.id) addPoints(e); }, { passive: true });
+function endFinger(e, cancelled) {
+  if (!finger || e.pointerId !== finger.id) return;
+  if (!cancelled) addPoints(e);
+  if (finger.moved) {
+    const { vx, vy } = fitVelocity(finger.pts, 45);
+    const k = T.fling * (finger.mouse ? T.mouseGain : 1) / Rpx;
+    release(vy * k, vx * k);
+  } else if (!cancelled) {
+    const b = finger.pts[finger.pts.length - 1];
+    if (b.t - finger.pts[0].t < 300) checkDoubleTap(b);
+  }
+  finger = null;
+}
+addEventListener('pointerup', e => endFinger(e, false), { passive: true });
+addEventListener('pointercancel', e => endFinger(e, true), { passive: true });
+addEventListener('contextmenu', e => e.preventDefault());
+
+// shake the phone (or S / Space on the PC): a random hard spin
+function shakeSpin() {
+  if (phase === 'held') return;
+  const a = Math.random() * Math.PI * 2, s = 18 + Math.random() * 14;
+  release(Math.cos(a) * s, Math.sin(a) * s);
+  omega.z = (Math.random() - 0.5) * 8;
+}
+let gX = 0, gY = 0, gZ = 0, lastShake = 0;
+addEventListener('devicemotion', e => {
+  let x, y, z; const a = e.acceleration;
+  if (a && a.x != null) { x = a.x; y = a.y; z = a.z; }
+  else if (e.accelerationIncludingGravity && e.accelerationIncludingGravity.x != null) {
+    const g = e.accelerationIncludingGravity;
+    gX += (g.x - gX) * 0.1; gY += (g.y - gY) * 0.1; gZ += (g.z - gZ) * 0.1;
+    x = g.x - gX; y = g.y - gY; z = g.z - gZ;
+  } else return;
+  const now = performance.now();
+  if (started && Math.hypot(x, y, z) > T.shakeMin && now - lastShake > 600) { lastShake = now; shakeSpin(); }
+});
+addEventListener('keydown', e => { if (started && (e.key === 's' || e.key === 'S' || e.key === ' ')) shakeSpin(); });
+
+// double tap: full screen on / off
+let lastTap = null;
+async function enterFullscreen() {
+  const el = document.documentElement;
+  try { if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' }); } catch {}
+  try { await screen.orientation.lock('portrait'); } catch {}
+}
+function checkDoubleTap(p) {
+  if (lastTap && p.t - lastTap.t < 350 && Math.hypot(p.x - lastTap.x, p.y - lastTap.y) < 50) {
+    lastTap = null;
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else enterFullscreen();
+  } else lastTap = p;
+}
+
+let started = false;
+document.getElementById('start').addEventListener('click', async () => {
+  initAudio();
+  document.getElementById('start').remove();
+  started = true;
+  try { if (window.DeviceMotionEvent && DeviceMotionEvent.requestPermission) await DeviceMotionEvent.requestPermission(); } catch {}
+  await enterFullscreen();
+  try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch {}
+  layout();
+});
+
+// ---------- step ----------
+const eq = new THREE.Quaternion(), errV = new THREE.Vector3();
+function step(dt) {
+  if (phase === 'spin' || phase === 'settle' || phase === 'shown') {
+    const s = omega.length();
+    if (s > 0) omega.multiplyScalar(Math.max(0, s - (T.fricK * s + T.fricC) * dt) / s);
+    if (phase === 'spin' && omega.length() < T.settleAt) { phase = 'settle'; pickAnswer(); }
+    if (phase !== 'spin') {
+      // roll toward the window: a critically damped spring on the turn still needed
+      eq.copy(target).multiply(ball.quaternion.clone().invert());
+      if (eq.w < 0) eq.set(-eq.x, -eq.y, -eq.z, -eq.w);
+      const ang = 2 * Math.acos(Math.min(1, eq.w)), sh = Math.sqrt(Math.max(0, 1 - eq.w * eq.w));
+      if (sh > 1e-6) errV.set(eq.x / sh, eq.y / sh, eq.z / sh).multiplyScalar(ang); else errV.set(0, 0, 0);
+      const D = 2 * Math.sqrt(T.spring);
+      omega.addScaledVector(errV, T.spring * dt).addScaledVector(omega, -D * dt);
+      if (phase === 'settle' && ang < 0.03 && omega.length() < 0.2) { phase = 'shown'; revealT = 0; }
+    }
+    rotateBy(omega, omega.length() * dt);
+  }
+}
+
+let prev = performance.now(), clock = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - prev) / 1000); prev = now; clock += dt;
+  for (let i = 0; i < 4; i++) step(dt / 4);
+
+  // the answer rises through the liquid, sways a little, sinks away on the next spin
+  if (phase === 'shown') {
+    const was = revealT;
+    revealT += dt;
+    if (was < T.revealDelay && revealT >= T.revealDelay) { bloop(); buzz(18); }
+    const x = Math.min(1, Math.max(0, (revealT - T.revealDelay) / T.revealTime));
+    reveal = x * x * (3 - 2 * x);
+  } else reveal = Math.max(0, reveal - dt * 5);
+  triMat.opacity = reveal * 0.97;
+  tri.scale.setScalar(0.86 + 0.14 * reveal);
+  tri.rotation.z = Math.sin(clock * 0.6) * 0.035;
+  tri.position.y = Math.sin(clock * 0.8) * 0.006;
+
+  if (swishGain) {
+    const s = phase === 'held' ? 0 : omega.length();
+    swishGain.gain.setTargetAtTime(Math.min(1, s / 30) * 0.22, ac.currentTime, 0.05);
+    swishBp.frequency.setTargetAtTime(220 + s * 28, ac.currentTime, 0.05);
+  }
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(frame);
+window.__ball = { ball, omega, release, shakeSpin, get phase() { return phase; }, get reveal() { return reveal; }, answer: '' };
+</script>
+</body>
+</html>

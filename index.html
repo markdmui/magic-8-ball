@@ -55,28 +55,31 @@ const T = {
   shakeMin: 12,       // phone acceleration that counts as a shake (m/s²)
 };
 
-// Own wording plus five of Mark's, all cheeky: 25 lean yes, 21 can't tell yet, 19 lean no.
-const ANSWERS = [
-  // leans yes
-  'OBVIOUSLY', 'DUH,\nYES', 'DID YOU\nEVEN NEED\nTO ASK?', 'FINE,\nYES', 'YES,\nNOW SHOO',
-  "YES.\nYOU'RE\nWELCOME", 'SURE,\nWHY NOT', 'I GUESS\nSO', 'YES,\nGENIUS', 'TOTALLY',
-  'EVEN I\nSAW THAT\nCOMING', 'THE STARS\nSAY DUH', 'YES. WAS\nTHAT SO\nHARD?', 'BIG\nYES', 'YEP.\nNEXT!',
-  'IS THE\nSKY BLUE?', 'IS WATER\nWET?', 'DO BEARS\nLIKE\nHONEY?', 'DO CATS\nLIKE\nNAPS?', "I'D SAY\nYES IF I\nCARED",
-  'YES. NOW\nPAY ME', 'YES. TELL\nNO ONE', 'YES, YOU\nLUCKY\nDUCK',
-  'FOR A\nSTUD LIKE\nYOU?\nABSOLUTELY', 'FOR A\nPRINCESS\nLIKE YOU?\nDEFINITELY',
-  // can't tell yet
-  "I'M ON\nBREAK", 'ASK\nNICELY', 'SHAKE\nHARDER', 'NO\nCOMMENT', 'BRB,\nTHINKING',
-  'ASK YOUR\nMOM', 'TOO\nSLEEPY.\nLATER', "CAN'T\nHEAR YOU", 'WHO\nKNOWS?', 'WHY ARE\nYOU ASKING\nA BALL?',
-  'ASK THE\nCAT', "I'M A\nBALL, NOT\nA GENIUS", 'LOADING...', 'MY BRAIN\nIS\nFOGGY', 'TRY\nBRIBING\nME',
-  'I DARE\nYOU TO\nASK AGAIN', '50/50.\nFLIP A\nCOIN', "DON'T\nLOOK AT\nME",
-  'HEY\nLOSER, TRY\nAGAIN\nTOMORROW', 'DID\nSOMEONE\nFART IN\nHERE?',
-  "YOU\nDIDN'T JUST\nTOUCH ME\nWITH THAT\nDIRTY FINGER,\nDID YOU?",
-  // leans no
-  'LOL,\nNO', 'NOT A\nCHANCE', 'IN YOUR\nDREAMS', 'NICE\nTRY', 'NOPE',
-  'AS IF', 'NOT EVEN\nCLOSE', "THAT'S A\nNO, CHIEF", 'HA!\nNO', "NO. DON'T\nASK AGAIN", 'BIG\nNO',
-  'CAN PIGS\nFLY?', 'DO FISH\nRIDE\nBIKES?', 'WHEN\nCOWS\nDANCE', 'NOT IN A\nMILLION\nYEARS', "SURE, AND\nI'M A\nTOASTER",
-  'ERROR:\nTOO SILLY', "HAHAHA.\nOH, YOU'RE\nSERIOUS?", 'THE STARS\nARE\nLAUGHING',
+// Answers live in answers.txt (Mark edits it). This copy is the backup if that file is missing or empty.
+const BACKUP_ANSWERS = [
+  "Obviously", "Duh, yes", "Did you even need to ask?", "Fine, yes", "Yes, now shoo",
+  "Yes. You're welcome", "Sure, why not", "I guess so", "Yes, genius", "Totally",
+  "Even I saw that coming", "The stars say duh", "Yes. Was that so hard?", "Big yes", "Yep. Next!",
+  "Is the sky blue?", "Is water wet?", "Do bears like honey?", "Do cats like naps?", "I'd say yes if I cared",
+  "Yes. Now pay me", "Yes. Tell no one", "Yes, you lucky duck", "For a stud like you? Absolutely", "For a princess like you? Definitely",
+  "I'm on break", "Ask nicely", "Shake harder", "No comment", "BRB, thinking",
+  "Ask your mom", "Too sleepy. Later", "Can't hear you", "Who knows?", "Why are you asking a ball?",
+  "Ask the cat", "I'm a ball, not a genius", "Loading...", "My brain is foggy", "Try bribing me",
+  "I dare you to ask again", "50/50. Flip a coin", "Don't look at me", "Hey loser, try again tomorrow", "Did someone fart in here?",
+  "You didn't just touch me with that dirty finger, did you?", "LOL, no", "Not a chance", "In your dreams", "Nice try",
+  "Nope", "As if", "Not even close", "That's a no, chief", "Ha! No",
+  "No. Don't ask again", "Big no", "Can pigs fly?", "Do fish ride bikes?", "When cows dance",
+  "Not in a million years", "Sure, and I'm a toaster", "Error: too silly", "Hahaha. Oh, you're serious?", "The stars are laughing",
 ];
+let ANSWERS = BACKUP_ANSWERS;
+fetch('answers.txt?v=' + Date.now(), { cache: 'no-store' })
+  .then(r => r.ok ? r.text() : '')
+  .then(t => {
+    const list = t.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+    if (list.length) { ANSWERS = list; recent.length = 0; }
+  })
+  .catch(() => {});
+
 
 // ---------- renderer ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -217,19 +220,40 @@ const textTex = canvasTex(textCv);
 function drawAnswer(text) {
   const S = texS, g = textCv.getContext('2d');
   g.clearRect(0, 0, S, S);
-  const lines = text.split('\n'), n = lines.length, Rc = S * 0.5 * 0.84;
-  // biggest size where the block and every line fit inside the round window
-  let fs = S * 0.16, lh, cy;
+  const words = text.toUpperCase().split(/\s+/).filter(Boolean), Rc = S * 0.5 * 0.84;
+  // Biggest text that fits: at each size, try 1, 2, 3... lines centred in the circle, each line as wide as
+  // the circle is at that height, and fill them word by word.
+  let fs = S * 0.16, lh, lines = null;
   const setFont = () => {
     g.font = `700 ${Math.round(fs)}px "Segoe UI", Arial, sans-serif`;
     if ('letterSpacing' in g) g.letterSpacing = `${Math.round(fs * 0.03)}px`;
-    lh = fs * 1.12; cy = S / 2 - (n - 1) * lh / 2;
+    lh = fs * 1.12;
   };
-  const fits = () => n * lh <= Rc * 1.9 && lines.every((l, i) => {
-    const y = cy + i * lh - S / 2, dy = Math.max(Math.abs(y - fs * 0.42), Math.abs(y + fs * 0.42));
-    return dy < Rc && g.measureText(l).width <= 2 * Math.sqrt(Rc * Rc - dy * dy);
-  });
-  for (setFont(); !fits() && fs > S * 0.04; ) { fs *= 0.96; setFont(); }
+  const wrapInto = n => {
+    const cy0 = S / 2 - (n - 1) * lh / 2, out = [];
+    let w = 0;
+    for (let i = 0; i < n; i++) {
+      const y = cy0 + i * lh - S / 2, dy = Math.max(Math.abs(y - fs * 0.42), Math.abs(y + fs * 0.42));
+      if (dy >= Rc) return null;
+      const room = 2 * Math.sqrt(Rc * Rc - dy * dy);
+      let line = '';
+      while (w < words.length) {
+        const next = line ? line + ' ' + words[w] : words[w];
+        if (g.measureText(next).width > room) break;
+        line = next; w++;
+      }
+      if (!line) return null;                     // a word too long for this line
+      out.push(line);
+      if (w === words.length) return out;
+    }
+    return null;
+  };
+  for (setFont(); fs > S * 0.04; fs *= 0.96, setFont()) {
+    for (let n = 1; n * lh <= Rc * 1.9 && !lines; n++) lines = wrapInto(n);
+    if (lines) break;
+  }
+  if (!lines) lines = [words.join(' ')];
+  const cy = S / 2 - (lines.length - 1) * lh / 2;
   g.textAlign = 'center'; g.textBaseline = 'middle';
   g.shadowColor = 'rgba(150,185,255,.9)'; g.shadowBlur = fs * 0.35;
   g.fillStyle = '#f4f7ff';
@@ -305,9 +329,10 @@ let reveal = 0, revealT = 0, recent = [];
 function pickAnswer() {
   let i;
   do { i = Math.random() * ANSWERS.length | 0; } while (recent.includes(i));
-  recent.push(i); if (recent.length > 4) recent.shift();
+  recent.push(i);
+  while (recent.length > Math.min(4, ANSWERS.length - 1)) recent.shift();   // no repeat of the last few
   drawAnswer(ANSWERS[i]);
-  window.__ball.answer = ANSWERS[i].replace(/\n/g, ' ');
+  window.__ball.answer = ANSWERS[i];
 }
 function release(wx, wy) {
   omega.set(wx, wy, 0);

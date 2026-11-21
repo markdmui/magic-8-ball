@@ -50,18 +50,18 @@ const T = {
   shakeMin: 12,       // phone acceleration that counts as a shake (m/s²)
 };
 
-// Own wording, with some cheek: 15 lean yes, 10 can't tell yet, 11 lean no.
+// Own wording, all cheeky: 15 lean yes, 10 can't tell yet, 11 lean no.
 const ANSWERS = [
   // leans yes
-  'COUNT\nON IT', 'ALL SIGNS\nSAY YES', 'THE STARS\nAGREE', 'LOOKS\nGOOD', 'VERY\nLIKELY',
-  'YES,\nIN TIME', "I'D BET\nON IT", 'IT IS\nWRITTEN', 'SURE\nLOOKS\nTHAT WAY', 'GO\nFOR IT',
   'OBVIOUSLY', 'DUH,\nYES', 'DID YOU\nEVEN NEED\nTO ASK?', 'FINE,\nYES', 'YES,\nNOW SHOO',
+  "YES.\nYOU'RE\nWELCOME", 'SURE,\nWHY NOT', 'I GUESS\nSO', 'YES,\nGENIUS', 'TOTALLY',
+  'EVEN I\nSAW THAT\nCOMING', 'THE STARS\nSAY DUH', 'YES. WAS\nTHAT SO\nHARD?', 'BIG\nYES', 'YEP.\nNEXT!',
   // can't tell yet
-  'TOO\nCLOUDY\nTO TELL', 'WAIT\nAND SEE', 'HARD\nTO SAY', 'ASK ME\nTOMORROW', 'COULD GO\nEITHER\nWAY',
   "I'M ON\nBREAK", 'ASK\nNICELY', 'SHAKE\nHARDER', 'NO\nCOMMENT', 'BRB,\nTHINKING',
+  'ASK YOUR\nMOM', 'TOO\nSLEEPY.\nLATER', "CAN'T\nHEAR YOU", 'WHO\nKNOWS?', 'WHY ARE\nYOU ASKING\nA BALL?',
   // leans no
-  "DON'T BET\nON IT", 'THE STARS\nSAY NO', 'NOT\nLIKELY', "I\nWOULDN'T", 'NOT THIS\nTIME', 'SLIM\nCHANCE',
   'LOL,\nNO', 'NOT A\nCHANCE', 'IN YOUR\nDREAMS', 'NICE\nTRY', 'NOPE',
+  'AS IF', 'NOT EVEN\nCLOSE', "THAT'S A\nNO, CHIEF", 'HA!\nNO', "NO. DON'T\nASK AGAIN", 'BIG\nNO',
 ];
 
 // ---------- renderer ----------

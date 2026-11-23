@@ -4,6 +4,8 @@
 # Every answer has the same chance. After editing, double-click push.cmd to put it live.
 
 # LEANS YES	______________________________________
+Yes.
+You got it
 Obviously
 Duh, yes
 Did you even need to ask?
@@ -17,8 +19,6 @@ Even I saw that coming
 Sure
 Yes. Was that so hard?
 Is the sky blue?
-Is water wet?
-Do bears like honey?
 I'd say yes if I cared
 Yes. Now leave me alone
 Yes but tell no one
@@ -30,13 +30,13 @@ Without a doubt
 I'm on break
 Ask nicely
 No comment
-BRB, thinking
+Bwoot!
 Ask your mom
 I can't hear you
 Who knows?
 Why are you asking a ball?
 I'm a ball, not a genius
-Loading...
+Loser say what
 Try bribing me
 I dare you to ask again
 Maybe
@@ -49,8 +49,10 @@ Dumb question, ask another
 Make like a tree and ...
 Not until you finish your veggies
 My grandma spins harder than that
-That's your question? Really?
-
+That's your question, really?
+:)
+:|
+:(
 # LEANS NO	______________________________________
 Absolutely not!
 LOL, no
@@ -64,8 +66,7 @@ That's a no, chief
 Ha! No
 No. Don't ask again
 Big no
-Can pigs fly?
-When cows dance
+You're as useful as a fart in the wind
 Not in a million years
 Sure, and I'm a toaster
 Hahaha. Oh, you're serious?
